@@ -3,7 +3,7 @@
  * Copyright (C) 2014       Marcos García           <marcosgdf@gmail.com>
  * Copyright (C) 2015-2016  Alexandre Spangaro      <aspangaro@open-dsi.fr>
  * Copyright (C) 2018-2024  Frédéric France         <frederic.france@free.fr>
- * Copyright (C) 2024-2025	MDW						<mdeweerd@users.noreply.github.com>
+ * Copyright (C) 2024-2025  MDW                     <mdeweerd@users.noreply.github.com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -20,9 +20,9 @@
  */
 
 /**
- *	\file       htdocs/opensurvey/wizard/create_survey.php
- *	\ingroup    opensurvey
- *	\brief      Page to create a new survey
+ *  \file       htdocs/opensurvey/wizard/create_survey.php
+ *  \ingroup    opensurvey
+ *  \brief      Page to create a new survey
  */
 
 // Load Dolibarr environment
@@ -53,11 +53,17 @@ $mailsonde = GETPOST('mailsonde');
 $creation_sondage_date = GETPOST('creation_sondage_date');
 $creation_sondage_autre = GETPOST('creation_sondage_autre');
 
-// We init some session variable to avoir warning
-$session_var = array('title', 'description', 'mailsonde');
-foreach ($session_var as $var) {
-	if (isset($_SESSION[$var])) {
-		$_SESSION[$var] = null;
+// --- sg CHANGE: Initialize session keys to avoid PHP8+ "Undefined array key" warnings
+$sgSessionDefaults = array(
+	'title' => '',
+	'description' => '',
+	'mailsonde' => false,
+	'allow_comments' => false,
+	'allow_spy' => false,
+);
+foreach ($sgSessionDefaults as $sgKey => $sgDefault) {
+	if (!isset($_SESSION[$sgKey])) {
+		$_SESSION[$sgKey] = $sgDefault;
 	}
 }
 
@@ -103,8 +109,6 @@ if (!empty($creation_sondage_date) || !empty($creation_sondage_autre)) {
 			$error++;
 			$testdate = true;
 			$_SESSION['champdatefin'] = dol_print_date($champdatefin, 'dayrfc');
-			//$testdate = false;
-			//$_SESSION['champdatefin'] = dol_print_date($champdatefin,'dayrfc');
 			setEventMessages($langs->trans('ErrorDateMustBeInFuture'), null, 'errors');
 		}
 	}
@@ -126,9 +130,6 @@ if (!empty($creation_sondage_date) || !empty($creation_sondage_autre)) {
 	}
 }
 
-
-
-
 /*
  * View
  */
@@ -141,7 +142,6 @@ llxHeader('', $langs->trans("OpenSurvey"), '', "", 0, 0, $arrayofjs, $arrayofcss
 
 print load_fiche_titre($langs->trans("CreatePoll").' (1 / 2)', '', 'poll');
 
-
 print '<form name="formulaire" action="" method="POST">'."\n";
 print '<input type="hidden" name="token" value="'.newToken().'">';
 
@@ -151,14 +151,19 @@ print '<table class="border centpercent">'."\n";
 
 print '<tr><td class="titlefieldcreate fieldrequired">'.$langs->trans("PollTitle").'</td>';
 
-print '<td><input type="text" name="title" class="minwidth300" maxlength="80" value="'.$_SESSION["title"].'" autofocus></td>'."\n";
-if (!$_SESSION["title"] && (GETPOST('creation_sondage_date') || GETPOST('creation_sondage_autre'))) {
+// --- sg CHANGE: use ?? to avoid warnings and escape the value
+$sgTitleValue = dol_escape_htmltag($_SESSION['title'] ?? '');
+print '<td><input type="text" name="title" class="minwidth300" maxlength="80" value="'.$sgTitleValue.'" autofocus></td>'."\n";
+
+if (empty($_SESSION["title"]) && (GETPOST('creation_sondage_date') || GETPOST('creation_sondage_autre'))) {
 	setEventMessages($langs->trans("ErrorFieldRequired", $langs->transnoentitiesnoconv("PollTitle")), null, 'errors');
 }
 
 print '</tr>'."\n";
 print '<tr><td>'.$langs->trans("Description").'</td><td>';
-$doleditor = new DolEditor('description', $_SESSION["description"], '', 120, 'dolibarr_notes', 'In', true, 1, 1, ROWS_7, '90%');
+
+// --- sg CHANGE: use ?? to avoid warnings
+$doleditor = new DolEditor('description', ($_SESSION["description"] ?? ''), '', 120, 'dolibarr_notes', 'In', true, 1, 1, ROWS_7, '90%');
 $doleditor->Create(0, '');
 print '</td>'."\n";
 print '</tr>'."\n";
@@ -175,24 +180,24 @@ print dol_get_fiche_end();
 print '<br>'."\n";
 
 // Check or not
-
-if ($_SESSION["mailsonde"]) {
+if (!empty($_SESSION["mailsonde"])) {
 	$cochemail = "checked";
 }
 
 print '<input type="checkbox" id="mailsonde" name="mailsonde" '.$cochemail.'> <label for="mailsonde">'.$langs->trans("ToReceiveEMailForEachVote").'</label><br>'."\n";
 
 $allow_comments = '';
-if ($_SESSION['allow_comments']) {
+if (!empty($_SESSION['allow_comments'])) {
 	$allow_comments = 'checked';
 }
 if (GETPOSTISSET('allow_comments')) {
 	$allow_comments = GETPOST('allow_comments') ? 'checked' : '';
 }
-print '<input type="checkbox" id="allow_comments" name="allow_comments" '.$allow_comments.'"> <label for="allow_comments">'.$langs->trans('CanComment').'</label><br>'."\n";
+// --- sg CHANGE: removed stray quote before >
+print '<input type="checkbox" id="allow_comments" name="allow_comments" '.$allow_comments.'> <label for="allow_comments">'.$langs->trans('CanComment').'</label><br>'."\n";
 
 $allow_spy = '';
-if ($_SESSION['allow_spy']) {
+if (!empty($_SESSION['allow_spy'])) {
 	$allow_spy = 'checked';
 }
 if (GETPOSTISSET('allow_spy')) {
